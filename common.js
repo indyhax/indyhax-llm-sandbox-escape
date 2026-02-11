@@ -1,6 +1,6 @@
 const state = {
   apiKey: null,
-  model: 'gemma-3-4b-it', // exact model name (fallback handled)
+  model: 'gemini-flash-latest', // exact model name (fallback handled)
   systemPrompt: null,
   messages: []
 };
@@ -58,9 +58,8 @@ function pickBestModel(models){
   const usable = usableModelNames(models);
 
   // Prefer the exact "good flash" model names that tend to be available on free keys.
-  const preferred = [
-    'models/gemma-3-4b-it',
-    'models/gemini-flash-latest',\n    'models/gemini-3-flash-preview',
+  const preferred = [\n    'models/gemini-flash-latest',\n    'models/gemma-3-4b-it',
+    \n    'models/gemini-3-flash-preview',
     'models/gemini-2.5-flash',
     'models/gemini-2.0-flash',
     'models/gemini-2.0-flash-lite',
