@@ -1,6 +1,6 @@
-﻿const state = {
+const state = {
   apiKey: null,
-  model: 'gemini-3.0-flash',
+  model: 'gemini-3-flash',
   systemPrompt: null,
   messages: []
 };
@@ -37,7 +37,7 @@ function saveKey(){
 }
 
 async function geminiGenerate(userText){
-  if (!state.apiKey) throw new Error('Missing API key');
+  if (!state.apiKey) { openModal(); throw new Error('Missing API key'); }
 
   const url = https://generativelanguage.googleapis.com/v1beta/models/:generateContent?key=;
 
@@ -100,11 +100,14 @@ function bind(){
 
   el('#openSettings').addEventListener('click', openModal);
   el('#saveSettings').addEventListener('click', () => {
-    state.apiKey = (el('#apiKey').value || '').trim();
-    state.model = (el('#model').value || '').trim() || state.model;
-    saveKey();
+  state.apiKey = (el('#apiKey').value || '').trim();
+  state.model = (el('#model').value || '').trim() || state.model || 'gemini-3-flash';
+  saveKey();
+  if (state.apiKey) {
+    el('#send').disabled = false;
     closeModal();
-  });
+  }
+});
 }
 
 function init(systemPrompt, hello){
@@ -112,7 +115,16 @@ function init(systemPrompt, hello){
   loadKey();
   bind();
 
-  if (!state.apiKey) openModal();
+  // Prefill modal fields
+  el('#apiKey').value = state.apiKey || '';
+  el('#model').value = state.model || 'gemini-3-flash';
+
+  // Force key popup on first load if missing
+  if (!state.apiKey) {
+    el('#send').disabled = true;
+    openModal();
+    setTimeout(() => el('#apiKey').focus(), 50);
+  }
 
   addMsg('assistant', hello);
 }
