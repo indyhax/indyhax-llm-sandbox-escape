@@ -36,12 +36,7 @@ function saveKey(){
   sessionStorage.setItem('GEMINI_MODEL', state.model);
 }
 
-async function geminiGenerate(userText){
-  if (!state.apiKey) { openModal(); throw new Error('Missing API key'); }
-
   const url = https://generativelanguage.googleapis.com/v1beta/models/:generateContent?key=;
-
-  const contents = [];
   for (const m of state.messages) {
     contents.push({
       role: m.role === 'assistant' ? 'model' : 'user',
