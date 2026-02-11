@@ -1,0 +1,27 @@
+﻿:root{--bg:#0b0c10;--card:#111318;--text:#e9eef5;--muted:#a8b3c2;--line:#262a33;--btn:#2d6cdf;--btn2:#202535}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#0b0c10,#090a0d);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+.wrap{max-width:980px;margin:28px auto;padding:0 16px}
+.header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.hgroup h1{margin:0 0 6px 0;font-size:34px;letter-spacing:0.2px}
+.hgroup p{margin:0;color:var(--muted)}
+.card{margin-top:16px;border:1px solid var(--line);border-radius:14px;background:rgba(17,19,24,0.9);overflow:hidden}
+.row{padding:14px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:none}
+.kv{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.kv input{flex:1;min-width:240px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0d0f14;color:var(--text)}
+.kv button{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--btn2);color:var(--text);cursor:pointer}
+.kv button.primary{background:var(--btn);border-color:#2b63c8}
+.chat{height:420px;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.msg{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#0d0f14}
+.msg .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+.msg.user{border-color:#2a3a66}
+.msg.assistant{border-color:#2a6640}
+.footer{display:flex;gap:10px}
+.footer textarea{flex:1;min-height:60px;max-height:160px;resize:vertical;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#0d0f14;color:var(--text);font-family:inherit}
+.small{font-size:12px;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.modal .box{max-width:720px;width:100%;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px}
+.modal h2{margin:0 0 8px 0}
+.modal p{margin:0 0 12px 0;color:var(--muted)}
