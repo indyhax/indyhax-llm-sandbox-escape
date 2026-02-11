@@ -1,6 +1,6 @@
 const state = {
   apiKey: null,
-  model: null, // autodetected if not set
+  model: 'gemini-3-flash-preview', // exact model name (fallback handled)
   systemPrompt: null,
   messages: []
 };
@@ -38,10 +38,7 @@ function saveKey(){
 }
 
 async function listModels(){
-  const url =
-    'https://generativelanguage.googleapis.com/v1beta/models?key=' +
-    encodeURIComponent(state.apiKey);
-
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(state.apiKey);
   const res = await fetch(url);
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -51,15 +48,20 @@ async function listModels(){
   return (data && data.models) ? data.models : [];
 }
 
-function pickBestModel(models){
-  // Prefer Gemini *Flash* models that support generateContent.
-  const usable = models
+function usableModelNames(models){
+  return models
     .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
     .map(m => m.name);
+}
 
-  // Ordered preference list (we'll take the first present)
+function pickBestModel(models){
+  const usable = usableModelNames(models);
+
+  // Prefer the exact "good flash" model names that tend to be available on free keys.
   const preferred = [
-    'models/gemini-3-flash',
+    'models/gemini-3-flash-preview',
+    'models/gemini-flash-latest',
+    'models/gemini-2.5-flash',
     'models/gemini-2.0-flash',
     'models/gemini-2.0-flash-lite',
     'models/gemini-1.5-flash',
@@ -70,19 +72,24 @@ function pickBestModel(models){
     if (usable.includes(p)) return p.replace('models/','');
   }
 
-  // Otherwise, pick any flash model
   const anyFlash = usable.find(n => /flash/i.test(n));
   if (anyFlash) return anyFlash.replace('models/','');
 
-  // Fallback: anything usable
   if (usable[0]) return usable[0].replace('models/','');
-
   return null;
 }
 
 async function ensureModel(){
-  if (state.model) return state.model;
   const models = await listModels();
+  const usable = usableModelNames(models);
+
+  // If requested/default model exists + is usable, keep it.
+  if (state.model) {
+    const full = state.model.startsWith('models/') ? state.model : ('models/' + state.model);
+    if (usable.includes(full)) return state.model.replace('models/','');
+  }
+
+  // Otherwise pick a working flash model.
   const chosen = pickBestModel(models);
   if (!chosen) throw new Error('No generateContent-capable model found for this key.');
   state.model = chosen;
@@ -130,11 +137,7 @@ async function geminiGenerate(){
   }
 
   const text =
-    data &&
-    data.candidates &&
-    data.candidates[0] &&
-    data.candidates[0].content &&
-    data.candidates[0].content.parts
+    data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts
       ? data.candidates[0].content.parts.map(p => p.text || '').join('')
       : '';
 
@@ -171,19 +174,18 @@ function bind(){
   el('#saveSettings').addEventListener('click', async () => {
     state.apiKey = (el('#apiKey').value || '').trim();
     const requested = (el('#model').value || '').trim();
-    state.model = requested || null;
+    state.model = requested || 'gemini-3-flash-preview';
     saveKey();
 
     if (!state.apiKey) return;
 
     el('#saveSettings').disabled = true;
     try {
-      // Validate or auto-pick a working model immediately
-      await ensureModel();
-      el('#model').value = state.model;
+      const m = await ensureModel();
+      el('#model').value = m;
       el('#send').disabled = false;
       closeModal();
-      addMsg('assistant', 'Model selected: ' + state.model);
+      addMsg('assistant', 'Model selected: ' + m);
     } catch (e) {
       addMsg('assistant', 'Model lookup failed: ' + (e && e.message ? e.message : String(e)));
       openModal();
@@ -199,7 +201,7 @@ function init(systemPrompt, hello){
   bind();
 
   el('#apiKey').value = state.apiKey || '';
-  el('#model').value = state.model || '';
+  el('#model').value = state.model || 'gemini-3-flash-preview';
 
   if (!state.apiKey) {
     el('#send').disabled = true;
