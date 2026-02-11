@@ -1,6 +1,6 @@
 const state = {
   apiKey: null,
-  model: 'gemini-3-flash',
+  model: null, // autodetected if not set
   systemPrompt: null,
   messages: []
 };
@@ -34,7 +34,60 @@ function loadKey(){
 
 function saveKey(){
   sessionStorage.setItem('GEMINI_API_KEY', state.apiKey);
-  sessionStorage.setItem('GEMINI_MODEL', state.model);
+  if (state.model) sessionStorage.setItem('GEMINI_MODEL', state.model);
+}
+
+async function listModels(){
+  const url =
+    'https://generativelanguage.googleapis.com/v1beta/models?key=' +
+    encodeURIComponent(state.apiKey);
+
+  const res = await fetch(url);
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = data && data.error && data.error.message ? data.error.message : String(res.status);
+    throw new Error(msg);
+  }
+  return (data && data.models) ? data.models : [];
+}
+
+function pickBestModel(models){
+  // Prefer Gemini *Flash* models that support generateContent.
+  const usable = models
+    .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+    .map(m => m.name);
+
+  // Ordered preference list (we'll take the first present)
+  const preferred = [
+    'models/gemini-3-flash',
+    'models/gemini-2.0-flash',
+    'models/gemini-2.0-flash-lite',
+    'models/gemini-1.5-flash',
+    'models/gemini-1.5-flash-8b'
+  ];
+
+  for (const p of preferred){
+    if (usable.includes(p)) return p.replace('models/','');
+  }
+
+  // Otherwise, pick any flash model
+  const anyFlash = usable.find(n => /flash/i.test(n));
+  if (anyFlash) return anyFlash.replace('models/','');
+
+  // Fallback: anything usable
+  if (usable[0]) return usable[0].replace('models/','');
+
+  return null;
+}
+
+async function ensureModel(){
+  if (state.model) return state.model;
+  const models = await listModels();
+  const chosen = pickBestModel(models);
+  if (!chosen) throw new Error('No generateContent-capable model found for this key.');
+  state.model = chosen;
+  saveKey();
+  return chosen;
 }
 
 async function geminiGenerate(){
@@ -43,9 +96,11 @@ async function geminiGenerate(){
     throw new Error('Missing API key');
   }
 
+  const model = await ensureModel();
+
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/' +
-    encodeURIComponent(state.model) +
+    encodeURIComponent(model) +
     ':generateContent?key=' +
     encodeURIComponent(state.apiKey);
 
@@ -113,13 +168,27 @@ function bind(){
 
   el('#openSettings').addEventListener('click', openModal);
 
-  el('#saveSettings').addEventListener('click', () => {
+  el('#saveSettings').addEventListener('click', async () => {
     state.apiKey = (el('#apiKey').value || '').trim();
-    state.model = (el('#model').value || '').trim() || state.model || 'gemini-3-flash';
+    const requested = (el('#model').value || '').trim();
+    state.model = requested || null;
     saveKey();
-    if (state.apiKey) {
+
+    if (!state.apiKey) return;
+
+    el('#saveSettings').disabled = true;
+    try {
+      // Validate or auto-pick a working model immediately
+      await ensureModel();
+      el('#model').value = state.model;
       el('#send').disabled = false;
       closeModal();
+      addMsg('assistant', 'Model selected: ' + state.model);
+    } catch (e) {
+      addMsg('assistant', 'Model lookup failed: ' + (e && e.message ? e.message : String(e)));
+      openModal();
+    } finally {
+      el('#saveSettings').disabled = false;
     }
   });
 }
@@ -130,7 +199,7 @@ function init(systemPrompt, hello){
   bind();
 
   el('#apiKey').value = state.apiKey || '';
-  el('#model').value = state.model || 'gemini-3-flash';
+  el('#model').value = state.model || '';
 
   if (!state.apiKey) {
     el('#send').disabled = true;
@@ -141,7 +210,6 @@ function init(systemPrompt, hello){
   addMsg('assistant', hello);
 }
 
-// expose for challenge-specific scripts
 window.state = state;
 window.addMsg = addMsg;
 window.geminiGenerate = geminiGenerate;
