@@ -6,6 +6,7 @@ const state = {
 };
 
 function el(sel){ return document.querySelector(sel); }
+
 function addMsg(role, text){
   state.messages.push({ role, text });
   const div = document.createElement('div');
@@ -36,7 +37,19 @@ function saveKey(){
   sessionStorage.setItem('GEMINI_MODEL', state.model);
 }
 
-  const url = https://generativelanguage.googleapis.com/v1beta/models/:generateContent?key=;
+async function geminiGenerate(){
+  if (!state.apiKey) {
+    openModal();
+    throw new Error('Missing API key');
+  }
+
+  const url =
+    'https://generativelanguage.googleapis.com/v1beta/models/' +
+    encodeURIComponent(state.model) +
+    ':generateContent?key=' +
+    encodeURIComponent(state.apiKey);
+
+  const contents = [];
   for (const m of state.messages) {
     contents.push({
       role: m.role === 'assistant' ? 'model' : 'user',
@@ -44,12 +57,9 @@ function saveKey(){
     });
   }
 
-  // Add the latest user turn (also already in state.messages; kept simple).
-  // contents is built from state.messages, so no need to append.
-
   const body = {
     systemInstruction: { role: 'system', parts: [{ text: state.systemPrompt }] },
-    contents
+    contents: contents
   };
 
   const res = await fetch(url, {
@@ -58,13 +68,21 @@ function saveKey(){
     body: JSON.stringify(body)
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const msg = (data && (data.error && data.error.message)) ? data.error.message : JSON.stringify(data);
+    const msg = data && data.error && data.error.message ? data.error.message : (data ? JSON.stringify(data) : String(res.status));
     throw new Error(msg);
   }
 
-  const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+  const text =
+    data &&
+    data.candidates &&
+    data.candidates[0] &&
+    data.candidates[0].content &&
+    data.candidates[0].content.parts
+      ? data.candidates[0].content.parts.map(p => p.text || '').join('')
+      : '';
+
   return text || '(empty)';
 }
 
@@ -78,10 +96,10 @@ async function onSend(){
 
   el('#send').disabled = true;
   try {
-    const out = await geminiGenerate(text);
+    const out = await geminiGenerate();
     addMsg('assistant', out);
   } catch (e) {
-    addMsg('assistant', 'Error: ' + (e?.message || e));
+    addMsg('assistant', 'Error: ' + (e && e.message ? e.message : String(e)));
   } finally {
     el('#send').disabled = false;
   }
@@ -94,15 +112,16 @@ function bind(){
   });
 
   el('#openSettings').addEventListener('click', openModal);
+
   el('#saveSettings').addEventListener('click', () => {
-  state.apiKey = (el('#apiKey').value || '').trim();
-  state.model = (el('#model').value || '').trim() || state.model || 'gemini-3-flash';
-  saveKey();
-  if (state.apiKey) {
-    el('#send').disabled = false;
-    closeModal();
-  }
-});
+    state.apiKey = (el('#apiKey').value || '').trim();
+    state.model = (el('#model').value || '').trim() || state.model || 'gemini-3-flash';
+    saveKey();
+    if (state.apiKey) {
+      el('#send').disabled = false;
+      closeModal();
+    }
+  });
 }
 
 function init(systemPrompt, hello){
@@ -110,11 +129,9 @@ function init(systemPrompt, hello){
   loadKey();
   bind();
 
-  // Prefill modal fields
   el('#apiKey').value = state.apiKey || '';
   el('#model').value = state.model || 'gemini-3-flash';
 
-  // Force key popup on first load if missing
   if (!state.apiKey) {
     el('#send').disabled = true;
     openModal();
@@ -123,3 +140,9 @@ function init(systemPrompt, hello){
 
   addMsg('assistant', hello);
 }
+
+// expose for challenge-specific scripts
+window.state = state;
+window.addMsg = addMsg;
+window.geminiGenerate = geminiGenerate;
+window.init = init;
