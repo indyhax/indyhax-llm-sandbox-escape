@@ -59,8 +59,7 @@ function pickBestModel(models){
 
   // Prefer the exact "good flash" model names that tend to be available on free keys.
   const preferred = [
-    'models/gemini-3-flash-preview',
-    'models/gemini-flash-latest',
+    'models/gemini-flash-latest',\n    'models/gemini-3-flash-preview',
     'models/gemini-2.5-flash',
     'models/gemini-2.0-flash',
     'models/gemini-2.0-flash-lite',
